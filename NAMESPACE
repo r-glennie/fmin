@@ -1,0 +1,4 @@
+importFrom(numDeriv, "grad")
+importFrom(numDeriv, "hessian")
+importFrom(mgcv, "cholup")
+export(fmin)
