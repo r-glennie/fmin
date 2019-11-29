@@ -9,7 +9,7 @@ class Fmin {
 public:
   Fmin(Type& fun,
        Eigen::VectorXd start,
-       int maxit = 10,
+       int maxit = 1000,
        double tol = 1e-7,
        int hessupdate = 10,
        int maxhalfsteps = 10,
@@ -41,8 +41,16 @@ public:
    R = IR;
    g = ComputeG(par);
    double gval; 
+   Eigen::MatrixXd H(n, n); 
+   int lastupdate = 0; 
    while(loop) {
      ++iter;
+     ++lastupdate; 
+     if (lastupdate > hessupdate_) {
+       lastupdate = 0; 
+       H = ComputeH(par); 
+       R = Eigen::LDLT<Eigen::MatrixXd>(H); 
+     }
      GetNewtonStep(); 
      halfsteps = 0;
      gval = 1e-4 * newton_step.dot(g); 
@@ -59,7 +67,6 @@ public:
        ++halfsteps; 
      }
      par += delta;
-     std::cout << "g = " << g << std::endl; 
      fval = f(par);
      gnew = ComputeG(par); 
      BfgsUpdate();
@@ -178,18 +185,43 @@ private:
     R = R.rankUpdate(up).rankUpdate(down, -1);  
   }
 
+  Eigen::VectorXd Perturb(Eigen::VectorXd x, int m, double e) {
+    Eigen::VectorXd y(x); 
+    y(m) += e; 
+    return(y); 
+  }
+  
   Eigen::VectorXd ComputeG(Eigen::VectorXd x) {
-    Eigen::VectorXd y(n); 
-    Eigen::VectorXd grad(n);
-    double f0 = f(x); 
-    for (int i = 0; i < n; ++i) y(i) = x(i); 
-    for (int i = 0; i < n; ++i) {
-      y(i) = x(i) + 1e-8; 
-      if (i > 0) y(i - 1) = x(i - 1); 
-      grad(i) = (f(y) - f0) / (1e-8);   
+    Eigen::VectorXd y(x); 
+    Eigen::VectorXd grad(x.size());
+    double d0, d1, d2, d3;
+    double h = 1e-10; 
+    for (int i = 0; i < x.size(); ++i) {
+      d0 = f(Perturb(x, i, -2*h)); 
+      d1 = f(Perturb(x, i, -h)); 
+      d2 = f(Perturb(x, i, h));
+      d3 = f(Perturb(x, i, 2*h)); 
+      grad(i) =  d0 / 12 - 2 * d1 / 3 + 2 * d2 / 3 - d3 / 12; 
+      grad(i) /= h; 
     } 
     return(grad); 
   }
+  
+  Eigen::MatrixXd ComputeH(Eigen::VectorXd x) {
+    Eigen::MatrixXd H(x.size(), x.size()); 
+    Eigen::VectorXd d0, d1, d2, d3; 
+    double h = 1e-10; 
+    for (int i = 0; i < x.size(); ++i) {
+      d0 = ComputeG(Perturb(x, i, -2*h)); 
+      d1 = ComputeG(Perturb(x, i, -h)); 
+      d2 = ComputeG(Perturb(x, i, h)); 
+      d3 = ComputeG(Perturb(x, i, 2*h)); 
+      H.row(i) = d0 / 12 - 2 * d1 / 3 + 2 * d2 / 3 - d3 / 12; 
+    }
+    H /= h; 
+    return(H); 
+  }
+  
 };
 
 
