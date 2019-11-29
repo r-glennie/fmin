@@ -8,7 +8,7 @@ banana <- function(x) {
   return(f)
 }
 
-fmin(banana, c(0, 0), verbose = TRUE)
+fmin(banana, c(0, 0, 0, 0), verbose = TRUE)
 
 # Rosenbrock Banana function, optimum is at (0, 0, ..., 0)
 rastrigin <- function(x) {

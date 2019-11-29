@@ -29,7 +29,7 @@ make_positive_definite <- function(X, epsilon = 1e-7, maxit = 100, tol = 1e-10) 
     iter <- iter + 1
     Y <- Y + I
     if (iter > maxit) {
-      warning("Failed to make matrix positive definite.")
+      warning("Failed to make matrix positive definite. Increase hessupdate.")
       break
     }
   }
