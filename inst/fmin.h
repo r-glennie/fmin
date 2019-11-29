@@ -22,7 +22,7 @@ public:
     f = fun;
     maxit_ = maxit;
     tol_ = tol;
-    hessupdate_ = hessupdate;
+    hessupdate_ = hessupdate > -1 ? hessupdate : maxit + 1;
     maxhalfsteps_ = maxhalfsteps;
     verbose_ = verbose;
     digits_ = digits;

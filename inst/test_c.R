@@ -2,8 +2,8 @@ library(RcppEigen)
 library(Rcpp)
 sourceCpp("inst/test_c.cpp")
 
-res <- system.time(doF(c(2, 2), hessupdate = -1, verbose = TRUE))
-system.time(fmin(banana, c(2, 2), hessupdate = -1, verbose = TRUE))
+res <- system.time(doF(c(0, 0), hessupdate = 10, verbose = TRUE))
+system.time(fmin(banana, c(2, 2), hessupdate = 0, verbose = TRUE))
 hessian(banana, c(1, 1))
 
 system.time(nlm(banana, c(2, 2)))
