@@ -70,7 +70,7 @@ public:
      par += delta;
      fval = f(par);
      if (verbose_) {
-       std::cout << std::fixed << std::setprecision(digits_) << fval << "\t" << par.transpose() << std::endl;
+       std::cout << std::fixed << std::setprecision(digits_) << fval << "\t|\t" << par.transpose() << std::endl;
 
      }
      gnew = ComputeG(par);
