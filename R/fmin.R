@@ -57,7 +57,7 @@ check_stop <- function(theta, g, delta, iter, tol, maxit, conv = FALSE) {
   th <- theta + 1e-10
   if (max(abs(g / th)) < tol) should_stop <- done <- TRUE
   if (max(abs(delta / th)) < tol) should_stop <- done <- TRUE
-  if (iter > maxit) should_stop <- TRUE
+  if (iter >= maxit) should_stop <- TRUE
   if(conv) should_stop <- done
   return(should_stop)
 }
@@ -143,6 +143,7 @@ bfgs_update <- function(R, gdif, delta) {
 #' @param tol tolerance for stopping criteria
 #' @param hessupdate number of iterations for which to update approximate BFGS Hessian with finite-difference Hessian. If set to zero, then always use finite-difference. If negative then never use it.
 #' @param maxhalfsteps maximum number of halfsteps to take when ensuring gradient descent
+#' @param save if TRUE then parameter values, function values, and gradients are saved for every iteration
 #' @param verbose if TRUE, function value and then parameter value are printed for each iteration
 #' @param digits number of digits to print when verbose = TRUE
 #' @param ... other named arguments to f
@@ -167,6 +168,7 @@ fmin <- function(f,
                  tol = 1e-7,
                  hessupdate = 10,
                  maxhalfsteps = 10,
+                 save = FALSE,
                  verbose = FALSE,
                  digits = 4,
                  ...) {
@@ -180,6 +182,12 @@ fmin <- function(f,
   } else {
     hessupdate <- 0
     bfgs <- FALSE
+  }
+  # if asked to save then create storage
+  if (save) {
+    save_pars <- matrix(0, nr = length(start), nc = maxit)
+    save_fvals <- rep(0, maxit)
+    save_gr <- matrix(0, nr = length(start), nc = maxit)
   }
   # set starting values
   theta <- start
@@ -241,6 +249,12 @@ fmin <- function(f,
                      "\n")
     # check stopping criterion
     if (check_stop(theta, g, delta, iter, tol, maxit)) loop <- FALSE
+    # save if asked
+    if (save) {
+      save_pars[,iter] <- theta
+      save_fvals[iter] <- fval
+      save_gr[,iter] <- g
+    }
   }
   # check convergence
   if (check_stop(theta, g, delta, iter, tol, maxit, conv = TRUE)) {
@@ -255,5 +269,35 @@ fmin <- function(f,
               H = Hfn(theta, ...),
               conv = conv,
               niter = iter)
+  if (save) res$save <- list(estimate = save_pars[,1:iter],
+                             value = save_fvals[1:iter],
+                             g = save_gr[,1:iter])
   return(res)
 }
+
+#' Check optimization from data stored during iterations in fmin
+#'
+#' @param opt output of fmin when fmin is run with save = TRUE argument
+#'
+#' @return four plots: norm of difference between parameters and final estimates
+#'                     value of objective function over iterations
+#'                     norm of gradient over iterations
+#'                     norm of relative gradient over iterations
+#' @export
+check_fmin <- function(opt) {
+  if (is.null(opt$save)) stop("opt must be output of fmin when run with save = TRUE")
+  par(mfrow=c(2, 2))
+  on.exit(par(mfrow=c(1,1)))
+  par <- apply(opt$save$estimate - opt$estimate, 2, FUN = compute_norm)
+  fval <- opt$save$value
+  gval <- apply(opt$save$g, 2, FUN = compute_norm)
+  relg <- apply(opt$save$g / opt$save$estimate, 2, FUN = compute_norm)
+  iters <- 1:opt$niter
+  plot(iters, par, xlab = "Iterations", ylab = "", main = "Parameter difference from final estimate", bty = "l", type = "l")
+  plot(iters, fval, xlab = "Iterations", ylab = "", main = "Objective function value", bty = "l", type = "l")
+  plot(iters, gval, xlab = "Iterations", ylab = "", main = "Norm of Gradient", bty = "l", type = "l")
+  plot(iters, relg, xlab = "Iterations", ylab = "", main = "Norm of Relative Gradient", bty = "l", type = "l")
+  invisible(opt)
+}
+
+
