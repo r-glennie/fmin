@@ -161,7 +161,7 @@ bfgs_update <- function(R, gdif, delta) {
 #' }
 #' @export
 fmin <- function(f,
-                 start,
+                 theta,
                  gfn = NULL,
                  Hfn = NULL,
                  maxit = 1000,
@@ -189,8 +189,6 @@ fmin <- function(f,
     save_fvals <- rep(0, maxit)
     save_gr <- matrix(0, nr = length(start), nc = maxit)
   }
-  # set starting values
-  theta <- start
   # setup loop
   iter <- 0
   loop <- TRUE
