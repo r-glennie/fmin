@@ -32,7 +32,7 @@ fmarg <- function(par, u0, dat) {
   return(nl)
 }
 
-gamdat <- gam(y ~ s(x, bs = "cs"), fit = FALSE)
+gamdat <- gam(y ~ s(x, bs = "cs"), method = "REML", fit = FALSE)
 dat <- list(y = y, X = gamdat$X, S = gamdat$S[[1]])
 
 u0 <- rep(0, ncol(dat$S))
@@ -61,7 +61,7 @@ f2 <- function(u, theta, dat) {
   llk <- sum(dnorm(dat$y, nu, exp(theta[1]), log = TRUE))
   llk <- llk + theta[2] * ncol(dat$S) / 2 - exp(theta[2]) * t(u) %*% dat$S %*% u / 2
   return(-as.numeric(llk))
-  
+
 }
 
 m2 <- fminlaplace(f2, u0, theta0, verbose = TRUE, hessupdate = 0, dat = dat)
