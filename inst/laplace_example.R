@@ -53,3 +53,19 @@ cbind(pred0, pred1)
 
 attributes(m$value)$opt$estimate
 
+
+f2 <- function(u, theta, dat) {
+  ind <- 1:length(theta)
+  ind <- ind[-(1:dat$npar)]
+  nu <- dat$X %*% c(theta[ind], u)
+  llk <- sum(dnorm(dat$y, nu, exp(theta[1]), log = TRUE))
+  llk <- llk + theta[2] * ncol(dat$S) / 2 - exp(theta[2]) * t(u) %*% dat$S %*% u / 2
+  return(-as.numeric(llk))
+  
+}
+
+m2 <- fminlaplace(f2, u0, theta0, verbose = TRUE, hessupdate = 0, dat = dat)
+
+pred2 <- dat$X %*% c(m2$estimate[3], m2$inner$estimate)
+
+V <- fullCovariance(f, m2, dat = dat)
