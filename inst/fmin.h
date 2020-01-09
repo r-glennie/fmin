@@ -14,12 +14,11 @@ public:
        int hessupdate = 30,
        int maxhalfsteps = 10,
        bool verbose = false,
-       int digits = 4) {
+       int digits = 4) : f(fun) {
 
     par = start;
     start_ = start;
     n = par.size();
-    f = fun;
     maxit_ = maxit;
     tol_ = tol;
     hessupdate_ = hessupdate > -1 ? hessupdate : maxit + 1;
@@ -104,23 +103,52 @@ public:
 
 
   Eigen::MatrixXd ComputeH(Eigen::VectorXd x) {
-    Eigen::MatrixXd H(x.size(), x.size());
-    double d0, d1, d2, d3, h1, h2;
-    double h = 1e-4;
-    double fx = f(x);
-    for (int i = 0; i < x.size(); ++i) {
-        d0 = (f(Perturb(x, i, h)) - 2 * fx + f(Perturb(x, i, -h))) / (h * h);
-        d1 = (f(Perturb(x, i, 2*h)) - 2 * fx + f(Perturb(x, i, -2*h))) / (4 * h * h);
-        H(i, i) = (4 * d0 - d1) / 3;
-      for (int j = i+1; j < x.size(); ++j) {
-        d0 = f(Perturb(x, i, h, j, h)) - f(Perturb(x, i, h, j, -h));
-        d1 = f(Perturb(x, i, -h, j, h)) - f(Perturb(x, i, -h, j, -h));
-        d2 = f(Perturb(x, i, 2*h, j, 2*h)) - f(Perturb(x, i, 2*h, j, -2*h));
-        d3 = f(Perturb(x, i, -2*h, j, 2*h)) - f(Perturb(x, i, -2*h, j, -2*h));
-        h1 = (d0 - d1) / (4 * h * h);
-        h2 = (d2 - d3) / (16 * h * h);
-        H(i, j) = (4 * h1 - h2) / 3;
-        H(j, i) = H(i, j);
+    int n = x.size(); 
+    Eigen::MatrixXd H(n, n);
+    double f0 = f(x);
+    // set initial difference sizes  
+    Eigen::MatrixXd h0 = 0.001 * x;
+    for (int i = 0; i < n; ++i) {
+      if (x(i) < 2e-5) h0(i) = 1e-4; 
+      if (h0(i) < 0) h0(i) = -h0(i); 
+    }
+    // diagonal of H
+    Eigen::VectorXd h(n);
+    double f1, f2;
+    int r = 4; 
+    Eigen::VectorXd Hrich(r); 
+    for (int i = 0; i < n; ++i) {
+      h = h0; 
+      for (int k = 0; k < r; ++k) {
+        f1 = f(Perturb(x, i, h(i))); 
+        f2 = f(Perturb(x, i, -h(i)));
+        Hrich(k) = (f1 - 2*f0 + f2) / (h(i) * h(i)); 
+        h *= 0.5; 
+      }
+      for (int m = 0; m < r - 1; ++m) {
+        for (int k = 0; k < r - m; ++k) {
+          Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1)- 1); 
+        }
+      }
+      H(i, i) = Hrich(0); 
+    }
+    // off-diagonal of H
+    for (int i = 0; i < n; ++i) {
+      for (int j = 0; j < i; ++j) {
+        h = h0; 
+        for (int k = 0; k < r; ++k) {
+          f1 = f(Perturb(x, i, h(i), j, h(j))); 
+          f2 = f(Perturb(x, i, -h(i), j, -h(j)));
+          Hrich(k) = (f1 - 2*f0 + f2 - H(i, i) * h(i) * h(i) - H(j, j) * h(j) * h(j)) / (2 * h(i) * h(j)); 
+          h *= 0.5; 
+        }
+        for (int m = 0; m < r - 1; ++m) {
+          for (int k = 0; k < r - m; ++k) {
+            Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1)- 1); 
+          }
+        }
+        H(i, j) = Hrich(0); 
+        H(j, i) = Hrich(0); 
       }
     }
     return(H);
@@ -169,7 +197,7 @@ private:
       ++iter;
       Y += I;
       if (iter > 100) {
-        std::cerr << "Cannot make Hessian positive-definite. Increase hessupdate." << std::endl;
+        //std::cerr << "Cannot make Hessian positive-definite. Increase hessupdate." << std::endl;
         break;
       }
     }
@@ -201,6 +229,7 @@ private:
 
   void GetNewtonStep() {
     newton_step = R.solve(-g);
+    if (verbose_) std::cout << "g = " << g << " step = " << newton_step << std::endl; 
   }
 
   void GetHalfStep() {
