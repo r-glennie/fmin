@@ -13,9 +13,11 @@ public:
 };
 
 double myFun::operator()(const Eigen::VectorXd& x) const {
-  double val = 100 * pow(x(1) - x(0) * x(0), 2) + pow(1 - x(0), 2);
-  //for (int i = 0; i < x.size(); ++i) val += x(i) * x(i);
-  return val;
+  double f = 0; 
+  f += pow(1.5 - x(0) + x(0) * x(1), 2); 
+  f += pow(2.25 - x(0) + x(0) * x(1) * x(1), 2); 
+  f += pow(2.625 - x(0) + x(0) * pow(x(1), 3), 2); 
+  return f;
 }
 
 // [[Rcpp::export]]
