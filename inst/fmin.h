@@ -107,10 +107,10 @@ public:
     Eigen::MatrixXd H(n, n);
     double f0 = f(x);
     // set initial difference sizes  
-    Eigen::MatrixXd h0 = 0.001 * x;
+    Eigen::MatrixXd h0 = 0.0001 * x;
     for (int i = 0; i < n; ++i) {
-      if (x(i) < 2e-5) h0(i) = 1e-4; 
       if (h0(i) < 0) h0(i) = -h0(i); 
+      if (fabs(x(i)) < 2e-5) h0(i) += 1e-4; 
     }
     // diagonal of H
     Eigen::VectorXd h(n);
@@ -122,12 +122,13 @@ public:
       for (int k = 0; k < r; ++k) {
         f1 = f(Perturb(x, i, h(i))); 
         f2 = f(Perturb(x, i, -h(i)));
+        
         Hrich(k) = (f1 - 2*f0 + f2) / (h(i) * h(i)); 
         h *= 0.5; 
       }
       for (int m = 0; m < r - 1; ++m) {
-        for (int k = 0; k < r - m; ++k) {
-          Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1)- 1); 
+        for (int k = 0; k < r - m - 1; ++k) {
+          Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1) - 1); 
         }
       }
       H(i, i) = Hrich(0); 
@@ -143,8 +144,8 @@ public:
           h *= 0.5; 
         }
         for (int m = 0; m < r - 1; ++m) {
-          for (int k = 0; k < r - m; ++k) {
-            Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1)- 1); 
+          for (int k = 0; k < r - m - 1; ++k) {
+            Hrich(k) = (Hrich(k + 1) * pow(4, m + 1) - Hrich(k)) / (pow(4, m + 1) - 1); 
           }
         }
         H(i, j) = Hrich(0); 
@@ -229,7 +230,6 @@ private:
 
   void GetNewtonStep() {
     newton_step = R.solve(-g);
-    if (verbose_) std::cout << "g = " << g << " step = " << newton_step << std::endl; 
   }
 
   void GetHalfStep() {
