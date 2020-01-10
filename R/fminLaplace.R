@@ -76,8 +76,8 @@ fminlaplace <- function(f,
     # inner optimization is a purely Newton update with variable step-size (no BFGS)
     inneropt <- fmin(subf, nu0, hessupdate = 0)
     # log-determinant of the Hessian
-    Hldet <- sum(log(diag(chol(inneropt$H))))
-    val <- inneropt$value + Hldet / 2
+    Hldet <- determinant(inneropt$H, log = TRUE)
+    val <- inneropt$value + Hldet$modulus / 2
     # set new starting values
     nu0 <- inneropt$estimate
     if (est) return(inneropt)

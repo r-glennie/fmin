@@ -24,7 +24,7 @@ f <- function(u, par, dat) {
 
 fmarg <- function(par, u0, dat) {
   opt <- fmin(f, u0, par = par, dat = dat)
-  #Hldet <- sum(log(diag(chol(opt$H))))
+  Hldet <- sum(log(diag(chol(opt$H))))
   Hldet <- determinant(opt$H, logarithm = TRUE)
   l <- -opt$value - Hldet$modulus / 2
   nl <- -l
@@ -64,8 +64,11 @@ f2 <- function(u, theta, dat) {
 
 }
 
-m2 <- fminlaplace(f2, u0, theta0, verbose = TRUE, hessupdate = 0, dat = dat)
+U <- dat$X[,-1]
+r <- dat$y - mean(dat$y)
+u0 <- solve(t(U) %*% U, t(U) %*% r)
+m2 <- fminlaplace(f2, u0, theta0, maxit = 1000, verbose = TRUE, hessupdate = 0, dat = dat)
 
 pred2 <- dat$X %*% c(m2$estimate[3], m2$inner$estimate)
-
+plot(pred0, pred2)
 V <- fullCovariance(f, m2, dat = dat)

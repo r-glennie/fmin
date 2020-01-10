@@ -10,35 +10,59 @@ template<class Type>
 class FminU {
 public:
   FminU(Type& fun,
-           Eigen::VectorXd x) {
-    f_ = fun;
-    x_ = x;
+           Eigen::VectorXd x) : f_(fun), x_(x) {}
+  
+  double operator()(const Eigen::VectorXd u) const {
+    return(f_(x_, u));
   }
-  double operator()(const Eigen::VectorXd u) const;
-  void setx(const Eigen::VectorXd newx);
+
+  void setx(const Eigen::VectorXd newx) {
+    x_ = newx; 
+  }
 
 private:
   Type f_;
   Eigen::VectorXd x_;
 };
 
-double FminU::operator()(const Eigen::VectorXd& u) const {
-  return(f_(x_, u));
-}
-
-double FminU::setx(const Eigen::VectorXd newx) {x_ = newx;}
-
 //// class to compute marginal f(x)
 template<class Type>
 class FminMarg {
 public:
-  FminMarg(Type& fu, const Eigen::VectorXd u) {
-    fu_ = fu;
-    u_ = u;
+  FminMarg(Type& fu, const Eigen::VectorXd u) : fu_(fu), u_(u) {}
+  
+  double operator()(const Eigen::VectorXd x)  {
+    fu_.setx(x);
+    Fmin<Type> fmin(fu_, u_, 1000, 1e-7, 0, 10, false, 4);
+    fmin.Run(); 
+    u_ = fmin.Par();
+    H_ = fmin.ComputeH(u_);
+    double val = fu_(u_);
+    //std::cout << "fu = " << val << std::endl; 
+    double Hldet = logdet(H_);
+    //std::cout << "Hldet = " << Hldet << std::endl; 
+    val += Hldet / 2;
+    //std::cout << "val = " << val << std::endl; 
+    return(val);
   }
-  double operator()(const Eigen::VectorXd x) const;
-  Eigen::VectorXd u() const;
-  Eigen::MatrixXd hessian() const;
+  
+  double logdet(const Eigen::MatrixXd& M) {
+    double ld = 0;
+    Eigen::PartialPivLU<Eigen::MatrixXd> lu(M);
+    auto& LU = lu.matrixLU();
+    double c = lu.permutationP().determinant(); // -1 or 1
+    for (int i = 0; i < LU.rows(); ++i) {
+      const auto& lii = LU(i,i);
+      if (lii < 0) c *= -1;
+      ld += log(abs(lii));
+    }
+    ld += log(c);
+    return ld;
+  }
+  
+  
+  Eigen::VectorXd u() const {return u_;}
+  Eigen::MatrixXd hessian() const {return H_;}
 
 private:
   Type fu_;
@@ -46,21 +70,7 @@ private:
   Eigen::MatrixXd H_;
 };
 
-FminMarg::operator()(const Eigen::VectorX x) const {
-  fu_.setx(x);
-  Fmin<Type> fmin(fu_, u_, 1000, 1e-7, 0, 10, false, 4);
-  u_ = fmin.Par();
-  H_ = fmin.ComputeH(u_);
-  double val = fu_(u_);
-  Eigen::MatrixXd L = H.llt().matrixL();
-  double Hldet;
-  for (int i = 0; i < L.cols(); ++i) Hldet += log(L(i, i));
-  val += Hldet / 2;
-  return(val);
-}
 
-FminMarg::u() const (return u_;)
-FminMarg::hessian() const {return H_;}
 
 //// class to compute optimal parameters from Laplace-approximate marginal likelihood
 template <class Type>
@@ -74,13 +84,7 @@ public:
        int hessupdate = 30,
        int maxhalfsteps = 10,
        bool verbose = false,
-       int digits = 4) {
-
-    x_ = x;
-    u_ = u;
-    startx_ = x;
-    startu_ = u;
-    f = fun;
+       int digits = 4) : x_(x), u_(u), startx_(x), startu_(u), f(fun) {
     maxit_ = maxit;
     tol_ = tol;
     hessupdate_ = hessupdate > -1 ? hessupdate : maxit + 1;
@@ -97,12 +101,10 @@ void Run() {
   fmin.Run();
   x_ = fmin.Par();
   u_ = fmarg.u();
-  fmin_ = fmin;
 }
 
 Eigen::VectorXd x() const {return x_;}
 Eigen::VectorXd u() const {return u_;}
-Fmin<FminMarg<FminU<Type>>> opt const {return fmin_;}
 
 
 private:
@@ -118,7 +120,6 @@ private:
   bool verbose_;
   int digits_;
   int conv;
-  Fmin<FminMarg<FminU<Type>>> fmin_;
 
 };
 
