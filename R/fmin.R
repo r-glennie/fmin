@@ -213,9 +213,9 @@ fmin <- function(f,
   }
   # if asked to save then create storage
   if (save) {
-    save_pars <- matrix(0, nr = length(start), nc = maxit)
+    save_pars <- matrix(0, nr = length(theta), nc = maxit)
     save_fvals <- rep(0, maxit)
-    save_gr <- matrix(0, nr = length(start), nc = maxit)
+    save_gr <- matrix(0, nr = length(theta), nc = maxit)
   }
   # setup loop
   iter <- 0
