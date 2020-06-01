@@ -2,18 +2,18 @@
 % Please edit documentation in R/fmin.R
 \name{get_newton_step}
 \alias{get_newton_step}
-\title{Do a Newton update with a Cholesky factor for the Hessian}
+\title{Do a Newton update with inverse Hessian}
 \usage{
-get_newton_step(R, g)
+get_newton_step(H, g)
 }
 \arguments{
-\item{R}{Cholesky factor (upper triangular) for the Hessian}
+\item{H}{Inverse Hessian matrix}
 
 \item{g}{gradient vector}
 }
 \value{
-Updated Cholesky
+Newton step vector
 }
 \description{
-Do a Newton update with a Cholesky factor for the Hessian
+Do a Newton update with inverse Hessian
 }

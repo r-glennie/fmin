@@ -2,20 +2,20 @@
 % Please edit documentation in R/fmin.R
 \name{bfgs_update}
 \alias{bfgs_update}
-\title{Update Cholesky factor of the Hessian by BFGS method}
+\title{Update inverse Hessian by BFGS method}
 \usage{
-bfgs_update(R, gdif, delta)
+bfgs_update(H, gdif, delta)
 }
 \arguments{
-\item{R}{Cholesky factor}
+\item{H}{inverse Hessian}
 
 \item{gdif}{change in gradients}
 
 \item{delta}{step taken}
 }
 \value{
-Updated Cholesky factor R
+Updated inverse Hessian H
 }
 \description{
-Update Cholesky factor of the Hessian by BFGS method
+Update inverse Hessian by BFGS method
 }

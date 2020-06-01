@@ -10,9 +10,9 @@ public:
   Fmin(Type& fun,
        Eigen::VectorXd start,
        int maxit = 1000,
-       double tol = 1e-7,
-       int hessupdate = 30,
-       int maxhalfsteps = 10,
+       double tol = 1e-10,
+       double stepmax = 1, 
+       int maxsubsteps = 10, 
        bool verbose = false,
        int digits = 4) : f(fun) {
 
@@ -20,9 +20,9 @@ public:
     start_ = start;
     n = par.size();
     maxit_ = maxit;
+    stepmax_ = stepmax; 
     tol_ = tol;
-    hessupdate_ = hessupdate > -1 ? hessupdate : maxit + 1;
-    maxhalfsteps_ = maxhalfsteps;
+    maxsubsteps_ = maxsubsteps;
     verbose_ = verbose;
     digits_ = digits;
     conv = 0;
@@ -32,51 +32,38 @@ public:
 
   void Run() {
    par = start_;
+   // setup loop 
    iter = 0;
    bool loop = true;
+   // initial values of f, inverse hessian, and gradient 
    fval = f(par);
-   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(n, n);
-   Eigen::LDLT<Eigen::MatrixXd> IR(I);
-   R = IR;
+   H = Eigen::MatrixXd::Identity(n, n);
    g = ComputeG(par);
-   double gval;
-   Eigen::MatrixXd H(n, n);
-   int lastupdate = 0;
    while(loop) {
      ++iter;
-     ++lastupdate;
-     if (lastupdate > hessupdate_) {
-       lastupdate = 0;
-       H = ComputeH(par);
-       H = MakePositiveDefinite(H);
-       if(CheckPositiveDefinite(H)) R = Eigen::LDLT<Eigen::MatrixXd>(H);
-     }
-     GetNewtonStep();
-     halfsteps = 0;
-     gval = 1e-4 * newton_step.dot(g);
+     // compute step direction 
+     GetNewtonStep(); 
      der = g.dot(newton_step);
-     alpha(0) = 1;
-     alpha(1) = 0;
-     fvals(0) = fval;
-     fvals(1) = f(par + newton_step);
-     delta = newton_step;
-     while(f(par + delta) > fval + gval & halfsteps < maxhalfsteps_) {
-       GetHalfStep();
-       gval = 1e-4 * alpha(1) * der;
-       delta = alpha(1) * newton_step;
-       ++halfsteps;
-     }
-     par += delta;
+     // get stepsize 
+     step_size = LineSearch(); 
+     // comute step 
+     delta = step_size * newton_step; 
+     // update parameters
+     par += delta; 
      fval = f(par);
+     gnew = ComputeG(par);
+     // update inverse Hessian 
+     BfgsUpdate();
+     // update gradient
+     g = gnew; 
+     // print if wanted 
      if (verbose_) {
        std::cout << std::fixed << std::setprecision(digits_) << fval << "\t|\t" << par.transpose() << std::endl;
-
      }
-     gnew = ComputeG(par);
-     BfgsUpdate();
-     g = gnew;
+     // check stopping criteria 
      if (CheckStop()) loop = false;
    }
+   // check convergence 
    if (CheckConv()) conv = 1;
   }
 
@@ -155,67 +142,40 @@ public:
     return(H);
   }
 
-
 private:
   Type f;
   Eigen::VectorXd start_;
   Eigen::VectorXd par;
   Eigen::VectorXd alpha;
   Eigen::VectorXd fvals;
-  Eigen::LDLT<Eigen::MatrixXd> R;
+  Eigen::MatrixXd H;
   double fval;
+  double gval; 
   int n;
+  double step_size; 
   Eigen::VectorXd delta;
   Eigen::VectorXd newton_step;
-  int halfsteps;
+  int substeps;
   double der;
+  double dernew; 
   Eigen::VectorXd g;
   Eigen::VectorXd gnew;
   int iter;
+  double stepmax_; 
   int maxit_;
   double tol_;
-  int hessupdate_;
-  int maxhalfsteps_;
+  int maxsubsteps_;
   bool verbose_;
   int digits_;
   int conv;
 
-  bool CheckPositiveDefinite(Eigen::MatrixXd X) {
-    bool pos = true;
-    Eigen::LLT<Eigen::MatrixXd> R(X);
-    if(R.info() == Eigen::NumericalIssue) {
-        pos = false;
-    }
-    return(pos);
-  }
-
-  Eigen::MatrixXd MakePositiveDefinite(Eigen::MatrixXd X) {
-    Eigen::MatrixXd Y = X;
-    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(X.rows(), X.cols());
-    I *= 1e-7;
-    int iter = 0;
-    while (!CheckPositiveDefinite(Y)) {
-      ++iter;
-      Y += I;
-      if (iter > 100) {
-        //std::cerr << "Cannot make Hessian positive-definite. Increase hessupdate." << std::endl;
-        break;
-      }
-    }
-    return(Y);
-  }
-
   bool CheckConv() {
     bool stop = false;
-    double maxg = fabs(g(0) / (par(0) + 1e-10));
-    double maxstep = fabs(delta(0) / (par(0) + 1e-10));
-    double relg;
-    double relstep;
+    double maxg = fabs(g(0)); 
+    double maxstep = fabs(delta(0)); 
     for (int i = 1; i < n; ++i) {
-      relg =  fabs(g(i) / (par(i) + 1e-10));
-      if (relg > maxg) maxg = relg;
-      relstep = fabs(delta(i) / (par(i) + 1e-10));
-      if (relstep > maxstep) maxstep = relstep;
+      if (fabs(g(i)) > maxg) maxg = fabs(g(i)); 
+      if (fabs(delta(i)) > maxstep) maxstep = fabs(delta(i)); 
     }
     if (maxg < tol_) stop = true;
     if (maxstep < tol_) stop = true;
@@ -229,36 +189,121 @@ private:
   }
 
   void GetNewtonStep() {
-    newton_step = R.solve(-g);
+    newton_step = -H * g; 
   }
 
-  void GetHalfStep() {
-    if (halfsteps == 0) {
-      alpha(1) = -der / (2.0 * (fvals(1) - fvals(0) - der));
-      fvals(1) = f(par + alpha(1) * newton_step);
+  double Backtrack(double minstep = 0.1) {
+    // quadratic approximation 
+    double m, M; 
+    if (alpha(0) < alpha(1)) {
+      m = alpha(0); 
+      M = alpha(1); 
     } else {
-      Eigen::VectorXd v(2);
-      v(0) = fvals(1) - fval - der * alpha(1);
-      v(1) = fvals(0) - fval - der * alpha(0);
-      double a = v(0) * alpha(0) * alpha(0) - v(1) * alpha(1) * alpha(1);
-      double b = -v(0) * pow(alpha(0), 3) + v(1) * pow(alpha(1), 3);
-      double c = alpha(0)  * alpha(0) * alpha(1) * alpha(1) * (alpha(1) - alpha(0));
-      a = a / c;
-      b = b / c;
-      alpha(0) = alpha(1);
-      fvals(0) = fvals(1);
-      alpha(1) = (-b + sqrt(b*b - 3 * a * der)) / (3.0 * a);
-      fvals(1) = f(par + alpha(1) * newton_step);
+      m = alpha(1); 
+      M = alpha(0); 
     }
-    if (alpha(1) > 0.5 * alpha(0)) alpha(1) = 0.5 * alpha(0);
-    if (alpha(1) < alpha(0) * 0.1) alpha(1) = 0.1 * alpha(0);
+    double diff = alpha(1) - alpha(0); 
+    double a = -gval * diff * diff;
+    double b = fvals(1) - fvals(0) - diff * gval; 
+    double incr = a / (2.0 * b); 
+    double newalp = alpha(0) + incr; 
+    double r = M - m; 
+    if ((newalp - m) / r < minstep) newalp = m + minstep * r; 
+    if ((M - newalp) / r < minstep) newalp = M - minstep * r; 
+    return(newalp); 
+  }
+
+  bool SufficientDecrease(double fnew, double alpha, double c1 = 1e-4) {
+    return(fnew <= fval + c1 * alpha * der);
+  }
+
+  bool CurvatureOk(double dernew, double c2 = 0.9) {
+    return(abs(dernew) <= -c2 * der); 
+  }
+
+  double LineSearch() { 
+    // start with Newton step 
+    alpha(0) = 0; 
+    alpha(1) = 1; 
+    fvals(0) = fval; 
+    fvals(1) = f(par + alpha(1) * newton_step); 
+    gval = der; 
+    substeps = 1; 
+    bool loop = true; 
+    bool suff; 
+    while (loop) {
+      suff = SufficientDecrease(fvals(1), alpha(1)); 
+      // if no sufficient decrease anymore, then zoom 
+      if (!suff | (substeps > 1 & fvals(1) > fvals(0))) {
+        return(Zoom()); 
+      }
+      gnew = ComputeG(par + alpha(1) * newton_step); 
+      dernew = gnew.dot(newton_step); 
+      // if curvature is good and sufficient decrease, stop 
+      if (CurvatureOk(dernew)) {
+        return(alpha(1)); 
+      } 
+      // if sufficient decrease and positive curvature, zoom 
+      if (dernew >= 0) {
+        return(Zoom()); 
+      }
+      // sufficient decrease but poor curvature, extend search 
+      alpha(0) = alpha(1); 
+      fvals(0) = fvals(1); 
+      gval = dernew; 
+      alpha(1) = 2 * alpha(1); 
+      fvals(1) = f(par + alpha(1) * newton_step); 
+      // stop if maximum number of substeps taken 
+      if (substeps > maxsubsteps_ | alpha(1) > stepmax_) {
+        return(alpha(1)); 
+      }
+      ++substeps; 
+    }
+  }
+
+  double Zoom() {
+    substeps = 1; 
+    double loop = true; 
+    double alp; 
+    double newf; 
+    double oldf = fval;   
+    while (loop) {
+      alp = Backtrack(); 
+      newf = f(par + alp * newton_step); 
+      // if no  sufficient decrese make his new step the upper bound
+      if (!SufficientDecrease(newf, alp) | newf > oldf) {
+        alpha(1) = alp; 
+        fvals(1) = newf; 
+        oldf = newf; 
+      } else {
+        gnew = ComputeG(par + alp * newton_step); 
+        dernew = gnew.dot(newton_step); 
+        if (CurvatureOk(dernew)) {
+          return(alp); 
+        }
+        if (dernew * (alpha(1) - alpha(0)) >= 0) {
+          alpha(1) = alpha(0); 
+          fvals(1) = fvals(0); 
+        }
+        alpha(0) = alp;
+        fvals(0) = newf; 
+        gval = dernew; 
+      }
+      ++substeps; 
+      if (substeps > maxsubsteps_) {
+        return(alp);  
+      }
+    }
+    return(alp); 
   }
 
   void BfgsUpdate() {
     Eigen::VectorXd gdif = gnew - g;
-    Eigen::VectorXd down = gdif / sqrt(abs(1e-10 + delta.transpose() * gdif));
-    Eigen::VectorXd up = gdif / sqrt(abs(1e-10 + gdif.transpose() * delta));
-    R = R.rankUpdate(up).rankUpdate(down, -1);
+    double r = 1 / gdif.dot(delta); 
+    Eigen::MatrixXd I = Eigen::MatrixXd::Identity(n, n); 
+    H = (I - r * delta * gdif.transpose()) * 
+          H * (I - r * gdif * delta.transpose()) + 
+            r * delta * delta.transpose(); 
   }
 
   Eigen::VectorXd Perturb(Eigen::VectorXd x, int m, double e, int k = -1, double e2 = 0) {
@@ -268,15 +313,5 @@ private:
     return(y);
   }
 
-
-
-
-
 };
-
-
-
 #endif // fmin_glennie_h
-
-
-

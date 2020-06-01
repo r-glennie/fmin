@@ -4,10 +4,12 @@
 \alias{check_stop}
 \title{Check if stopping criterion satisified}
 \usage{
-check_stop(theta, g, delta, iter, tol, maxit, conv = FALSE)
+check_stop(theta, fval, g, delta, iter, tol, maxit, conv = FALSE)
 }
 \arguments{
 \item{theta}{current parameters}
+
+\item{fval}{current function value}
 
 \item{g}{gradient vector}
 
@@ -19,7 +21,8 @@ check_stop(theta, g, delta, iter, tol, maxit, conv = FALSE)
 
 \item{maxit}{maximum number of iterations}
 
-\item{conv}{if TRUE return whether convergence criterion, not just stopping criteria are satisified}
+\item{conv}{if TRUE return whether convergence criterion, not just stopping
+criteria are satisified}
 }
 \value{
 TRUE if criteria satisified

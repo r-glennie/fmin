@@ -1,28 +1,8 @@
-# Copyright (c) 2020 Richard Glennie
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-#
 ###############################################################################
 #
 # fmin: algorithm to minimize function using line search Quasi-Newton method
 #       as described in Nocedal and Wright (2006). Line Search uses bracketing
-#       and quadratic/cubic interpolation to satisfy Wolfe conditions. Inverse
+#       and quadratic interpolation to satisfy Wolfe conditions. Inverse
 #       hessian is updated by BFGS.
 
 ###############################################################################
@@ -108,7 +88,7 @@ backtrack <- function(alpha,
   return(newalp)
 }
 
-# check sufficient decrease condition (also known as Amijo's condition)
+# check sufficient decrease condition (first Wolfe condition)
 sufficient_decrease <- function(fnew, fval, alpha, der, c1 = 1e-4) {
   return(fnew <= fval + c1 * alpha * der)
 }
@@ -184,6 +164,7 @@ linesearch <- function(theta,
     # sufficient decrease but poor curvature, extend search
     alpha[1] <- alpha[2]
     fvals[1] <- fvals[2]
+    gval <- dernew 
     alpha[2] <- 2 * alpha[2]
     fvals[2] <- f(theta + alpha[2] * newton_step, ...)
     # stop if maximum number of substeps taken
@@ -218,12 +199,12 @@ zoom <- function(alpha,
                  maxsubsteps,
                  ...) {
   substeps <- 1
+  oldf <- fval
   repeat {
     # interpolate within interval to new step size
     alp <- backtrack(alpha, fvals, gval)
     # compute function value at new step
     newf <- f(theta + alp * newton_step, ...)
-    oldf <- fval
     # if no sufficient decrease make this new step the upper bound
     if (!sufficient_decrease(newf, fval, alp, der) | newf > oldf) {
       alpha[2] <- alp
@@ -245,7 +226,7 @@ zoom <- function(alpha,
       # make new step the best found so far that has sufficient decrease
       alpha[1] <- alp
       fvals[1] <- newf
-      gval <- dot(newg, newton_step)
+      gval <-  newder
     }
     substeps <- substeps + 1
     if (substeps > maxsubsteps) {
@@ -277,16 +258,22 @@ bfgs_update <- function(H, gdif, delta) {
 #' @param start vector of starting values
 #' @param gobj (optional) gradient function of f, uses finite differencing
 #'             otherwise
+#' @param funit scaling for function values, try to pick this so that f 
+#'              values vary between -1 and 1
+#' @param units a vector of same length as start giving coordinate units, 
+#'              try to pick units such that values of parameter in that
+#'              coordinate direction vary between -1 and 1
 #' @param maxit maximum number of iterations to try
 #' @param tol tolerance for stopping criteria
-#' @param stepmax maximum relative step length
+#' @param stepmax maximum relative step length, default of 1 means no steps
+#'                longer than full Newton step 
 #' @param maxsubsteps maximum number of substeps in line search
 #' @param save if TRUE then parameter values, function values, and gradients
 #'             are saved for every iteration
 #' @param verbose if TRUE, function value and then parameter value are printed
 #'                for each iteration
 #' @param digits number of digits to print when verbose = TRUE
-#' @param ... other named arguments to f
+#' @param ... other named arguments to f and gobj (if given)
 #'
 #' @description Performs a quasi-Newton line search optimization with BFGS
 #'              updates of the inverse hessian. See Nocedal and Wright
@@ -347,7 +334,7 @@ fmin <- function(obj,
     digs <- paste0("%.", digits, "f")
   }
   # initial inverse Hessian is identity
-  I <- H <- diag(length(theta))
+  H <- diag(length(theta))
   # initial gradient
   g <- gfn(theta, ...)
   while (loop) {
@@ -364,6 +351,7 @@ fmin <- function(obj,
                             gfn,
                             maxsubsteps,
                             stepmax)
+    # compute step 
     delta <- step_size * newton_step
     # update theta
     theta <- theta + delta

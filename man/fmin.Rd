@@ -4,32 +4,56 @@
 \alias{fmin}
 \title{Minimize a function f using a Quasi-Newton method}
 \usage{
-fmin(f, start, gfn = NULL, Hfn = NULL, maxit = 1000, tol = 1e-07,
-  hessupdate = 10, maxhalfsteps = 10, verbose = FALSE, digits = 4,
-  ...)
+fmin(
+  obj,
+  theta,
+  gobj = NULL,
+  funit = 1,
+  units = NULL,
+  maxit = 1000,
+  tol = 1e-10,
+  stepmax = 1,
+  maxsubsteps = 10,
+  save = FALSE,
+  verbose = FALSE,
+  digits = 4,
+  ...
+)
 }
 \arguments{
-\item{f}{function to be minimised which takes parameter vector as first argument}
+\item{obj}{function to be minimised which takes parameter vector as
+first argument}
 
-\item{start}{vector of starting values}
+\item{gobj}{(optional) gradient function of f, uses finite differencing
+otherwise}
 
-\item{gfn}{(optional) gradient function of f, uses finite differencing otherwise}
+\item{funit}{scaling for function values, try to pick this so that f 
+values vary between -1 and 1}
 
-\item{Hfn}{(optional) hessian function of f, uses finite differencing otherwise}
+\item{units}{a vector of same length as start giving coordinate units, 
+try to pick units such that values of parameter in that
+coordinate direction vary between -1 and 1}
 
 \item{maxit}{maximum number of iterations to try}
 
 \item{tol}{tolerance for stopping criteria}
 
-\item{hessupdate}{number of iterations for which to update approximate BFGS Hessian with finite-difference Hessian. If set to zero, then always use finite-difference. If negative then never use it.}
+\item{stepmax}{maximum relative step length, default of 1 means no steps
+longer than full Newton step}
 
-\item{maxhalfsteps}{maximum number of halfsteps to take when ensuring gradient descent}
+\item{maxsubsteps}{maximum number of substeps in line search}
 
-\item{verbose}{if TRUE, function value and then parameter value are printed for each iteration}
+\item{save}{if TRUE then parameter values, function values, and gradients
+are saved for every iteration}
+
+\item{verbose}{if TRUE, function value and then parameter value are printed
+for each iteration}
 
 \item{digits}{number of digits to print when verbose = TRUE}
 
-\item{...}{other named arguments to f}
+\item{...}{other named arguments to f and gobj (if given)}
+
+\item{start}{vector of starting values}
 }
 \value{
 a list with elements:
@@ -37,11 +61,14 @@ a list with elements:
   \item estimate - a vector of the optimal estimates
   \item value -  value of the objective function at the optimum
   \item g - gradient vector at the optimum
-  \item H - hessian at the optimum
-  \item conv - is TRUE if convergence was satisfied, otherwise may not have converged on optimum
+  \item H - hessian at the optimum computed by finite difference
+  \item conv - is TRUE if convergence was satisfied, otherwise may not have
+                converged on optimum
   \item niter: number of iterations taken
 }
 }
 \description{
-Algorithm uses initial Hessian equal to identity matrix and then updates it using BFGS formula: it updates by Cholesky factor. Every hessupdate iterations, the approximate BFGS Hessian is replaced by the finite-difference approximate. A cubic line search is used to determined step size. Step direction is by Newton's method. Stopping criteria are relative gradient and relative step length.
+Performs a quasi-Newton line search optimization with BFGS
+             updates of the inverse hessian. See Nocedal and Wright
+             (2006), Chapter 3 for details.
 }

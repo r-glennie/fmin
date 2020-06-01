@@ -1,4 +1,8 @@
-## Using fmin on test functions
+###############################################################################
+#
+# Using fmin on simple test functions  
+# 
+###############################################################################
 library(fmin)
 
 # Rosenbrock Banana function, optimum is at (1, 1, ..., 1)
@@ -9,6 +13,7 @@ banana <- function(x) {
 }
 
 opt <- fmin(banana, c(0, 0), verbose = TRUE, save = TRUE)
+# check_fmin shows how gradient and function changed over optimization 
 check_fmin(opt)
 test <- nlm(banana, c(0, 0))
 
@@ -46,7 +51,7 @@ beale <- function(x) {
     (2.625 - x[1] + x[1] * x[2]^3)^2
   return(f)
 }
-beal <- fmin(beale, c(0, 0), verbose = TRUE)
+beal <- fmin(beale, c(0, 0), verbose = FALSE)
 
 # Booth function, minimum at (1, 3)
 booth <- function(x) {
@@ -69,6 +74,7 @@ hump <- function(x) {
   return(f)
 }
 
+# this is a tricky function and standard optimisers struggle 
 hmm <- fmin(hump, c(1, 1), verbose = TRUE)
 test <- nlm(hump, c(1, 1))
 hump(test$estimate)
