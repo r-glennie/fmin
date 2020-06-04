@@ -7,11 +7,6 @@
 
 ###############################################################################
 
-# Compute norm of a vector v
-compute_norm <- function(v) {
-  return(sqrt(sum(v^2)))
-}
-
 # dot product of vectors
 dot <- function(v, w) {
   return(sum(v * w))
@@ -19,8 +14,6 @@ dot <- function(v, w) {
 
 #' Check if stopping criterion satisified
 #'
-#' @param theta current parameters
-#' @param fval current function value
 #' @param g gradient vector
 #' @param delta step vector
 #' @param iter current iteration number
@@ -30,9 +23,7 @@ dot <- function(v, w) {
 #'             criteria are satisified
 #'
 #' @return TRUE if criteria satisified
-check_stop <- function(theta,
-                       fval,
-                       g,
+check_stop <- function(g,
                        delta,
                        iter,
                        tol,
@@ -63,7 +54,6 @@ get_newton_step <- function(H, g) {
 #' @param fvals previous 2 functional values for alpha step sizes
 #'              (or 1 if first substep)
 #' @param minstep minimum relative step size change
-#' @param ... other arguments to f
 #'
 #' @description See p58 of Nocedal and Wright (2006).
 #'
@@ -71,8 +61,7 @@ get_newton_step <- function(H, g) {
 backtrack <- function(alpha,
                          fvals,
                          gval,
-                         minstep = 0.1,
-                          ...) {
+                         minstep = 0.1) {
   # quadratic approximation
   alpdiff <- alpha[2] - alpha[1]
   a <- -gval * alpdiff^2
@@ -107,7 +96,6 @@ curvature_condition <- function(dernew, der, c2 = 0.9) {
 #' @param gfn gradient function
 #' @param maxsubsteps maximum substeps to perform
 #' @param stepmax maximum step size allowed
-#' @param ... other arguments to f
 linesearch <- function(theta,
                        newton_step,
                        fval,
@@ -117,12 +105,11 @@ linesearch <- function(theta,
                        maxsubsteps,
                        stepmax,
                        funit,
-                       units,
-                       ...) {
+                       units) {
   # begin with full Newton step size of 1
   alpha <- c(0, 1)
   # iniitialise function at proposed Newton step
-  fvals <- c(fval, f(theta + alpha[2] * newton_step, ...))
+  fvals <- c(fval, f(theta + alpha[2] * newton_step))
   gval <- der
   substeps <- 1
   repeat {
@@ -141,7 +128,7 @@ linesearch <- function(theta,
                        maxsubsteps)
       break
     }
-    newg <- gfn(theta + alpha[2] * newton_step, ...)
+    newg <- gfn(theta + alpha[2] * newton_step)
     dernew <- dot(newg, newton_step)
     # if sufficient decrease and curvature good, stop
     if (curvature_condition(dernew, der)) {
@@ -166,7 +153,7 @@ linesearch <- function(theta,
     fvals[1] <- fvals[2]
     gval <- dernew 
     alpha[2] <- 2 * alpha[2]
-    fvals[2] <- f(theta + alpha[2] * newton_step, ...)
+    fvals[2] <- f(theta + alpha[2] * newton_step)
     # stop if maximum number of substeps taken
     if (substeps > maxsubsteps | alpha[2] > stepmax) {
       break
@@ -186,7 +173,6 @@ linesearch <- function(theta,
 #' @param fvals function values at boundary step sizes
 #' @param newton_step full Newton step direction
 #' @param maxsubsteps maximum number of substeps allowed
-#' @param ... other arguments to f
 zoom <- function(alpha,
                  theta,
                  f,
@@ -196,15 +182,14 @@ zoom <- function(alpha,
                  fvals,
                  gval,
                  newton_step,
-                 maxsubsteps,
-                 ...) {
+                 maxsubsteps) {
   substeps <- 1
   oldf <- fval
   repeat {
     # interpolate within interval to new step size
     alp <- backtrack(alpha, fvals, gval)
     # compute function value at new step
-    newf <- f(theta + alp * newton_step, ...)
+    newf <- f(theta + alp * newton_step)
     # if no sufficient decrease make this new step the upper bound
     if (!sufficient_decrease(newf, fval, alp, der) | newf > oldf) {
       alpha[2] <- alp
@@ -212,7 +197,7 @@ zoom <- function(alpha,
       oldf <- newf
     } else {
       # compute gradient and direction derivative at new step
-      newg <- gfn(theta + alp * newton_step, ...)
+      newg <- gfn(theta + alp * newton_step)
       newder <- dot(newg, newton_step)
       # curvature condition satisfied then accept step
       if (curvature_condition(newder, der)) {
@@ -295,7 +280,7 @@ fmin <- function(obj,
                  gobj = NULL,
                  funit = 1,
                  units = NULL,
-                 maxit = 1000,
+                 maxit = 200,
                  tol = 1e-10,
                  stepmax = 1,
                  maxsubsteps = 10,
@@ -306,16 +291,16 @@ fmin <- function(obj,
   # default coordinate units are 1
   if (is.null(units)) units <- rep(1, length(theta))
   # define scaled objective function
-  f <- function(theta, ...) {
+  f <- function(theta) {
     obj(units * theta, ...) / funit
   }
   # if not gradient supplied then use numDeriv
   if (is.null(gobj)) {
-    gfn <- function(theta, ...) {
+    gfn <- function(theta) {
       grad(f, theta, ...)
     }
   } else {
-    gfn <- function(theta, ...) {
+    gfn <- function(theta) {
       gobj(units * theta, ...) / funit
     }
   }
@@ -329,14 +314,14 @@ fmin <- function(obj,
   iter <- 0
   loop <- TRUE
   conv <- FALSE
-  fval <- f(theta, ...)
+  fval <- f(theta)
   if (verbose) {
     digs <- paste0("%.", digits, "f")
   }
   # initial inverse Hessian is identity
   H <- diag(length(theta))
   # initial gradient
-  g <- gfn(theta, ...)
+  g <- gfn(theta)
   while (loop) {
     iter <- iter + 1
     # compute step direction
@@ -356,8 +341,8 @@ fmin <- function(obj,
     # update theta
     theta <- theta + delta
     # update Hessian
-    fval <- f(theta, ...)
-    gnew <- gfn(theta, ...)
+    fval <- f(theta)
+    gnew <- gfn(theta)
     gdif <- gnew - g
     # if first iterate, replace identity Hessian with better approximation
     # before BFGS update
@@ -371,7 +356,7 @@ fmin <- function(obj,
                      "\t",
                      "\n")
     # check stopping criterion
-    if (check_stop(theta, fval, g, delta, iter, tol, maxit)) loop <- FALSE
+    if (check_stop(g, delta, iter, tol, maxit)) loop <- FALSE
     # save if asked
     if (save) {
       save_pars[, iter] <- theta * units
@@ -380,7 +365,7 @@ fmin <- function(obj,
     }
   }
   # check convergence
-  if (check_stop(theta, fval, g, delta, iter, tol, maxit, conv = TRUE)) {
+  if (check_stop(g, delta, iter, tol, maxit, conv = TRUE)) {
     conv <- TRUE
   } else {
     conv <- FALSE
@@ -412,10 +397,10 @@ check_fmin <- function(opt) {
                               save = TRUE")
   par(mfrow = c(2, 2))
   on.exit(par(mfrow = c(1 ,1)))
-  par <- apply(opt$save$estimate - opt$estimate, 2, FUN = compute_norm)
+  par <- apply(opt$save$estimate - opt$estimate, 2, FUN = function(x){sqrt(sum(x^2))})
   fval <- opt$save$value
-  gval <- apply(opt$save$g, 2, FUN = compute_norm)
-  relg <- apply(opt$save$g / opt$save$estimate, 2, FUN = compute_norm)
+  gval <- apply(opt$save$g, 2, FUN = function(x){max(abs(x))})
+  relg <- apply(opt$save$g / opt$value, 2, FUN = function(x) {max(abs(x))})
   iters <- 1:opt$niter
   plot(iters,
        par,
@@ -435,14 +420,14 @@ check_fmin <- function(opt) {
        gval,
        xlab = "Iterations",
        ylab = "",
-       main = "Norm of Gradient",
+       main = "Maximum Absolute Gradient",
        bty = "l",
        type = "l")
   plot(iters,
        relg,
        xlab = "Iterations",
        ylab = "",
-       main = "Norm of Relative Gradient",
+       main = "Maximum Absolute Relative Gradient",
        bty = "l",
        type = "l")
   invisible(opt)

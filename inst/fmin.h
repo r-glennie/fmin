@@ -9,7 +9,7 @@ class Fmin {
 public:
   Fmin(Type& fun,
        Eigen::VectorXd start,
-       int maxit = 1000,
+       int maxit = 200,
        double tol = 1e-10,
        double stepmax = 1, 
        int maxsubsteps = 10, 

@@ -1,7 +1,6 @@
 # Running C_example.cpp to optimize a function in C++
 library(RcppEigen)
 library(Rcpp)
-setwd("inst")
 # compile function
 sourceCpp("C_example.cpp")
 
