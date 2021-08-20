@@ -390,7 +390,7 @@ fmin <- function(obj,
 #' @return four plots: norm of difference between parameters and final estimates
 #'                     value of objective function over iterations
 #'                     norm of gradient over iterations
-#'                     norm of relative gradient over iterations
+#'                     maximum absolute gradient component over iterations 
 #' @export
 check_fmin <- function(opt) {
   if (is.null(opt$save)) stop("opt must be output of fmin when run with
@@ -399,8 +399,8 @@ check_fmin <- function(opt) {
   on.exit(par(mfrow = c(1 ,1)))
   par <- apply(opt$save$estimate - opt$estimate, 2, FUN = function(x){sqrt(sum(x^2))})
   fval <- opt$save$value
-  gval <- apply(opt$save$g, 2, FUN = function(x){max(abs(x))})
-  relg <- apply(opt$save$g / opt$value, 2, FUN = function(x) {max(abs(x))})
+  normg <- apply(opt$save$g, 2, FUN = function(x) {sqrt(sum(x^2))})
+  maxg <- apply(opt$save$g, 2, FUN = function(x){max(abs(x))})
   iters <- 1:opt$niter
   plot(iters,
        par,
@@ -417,17 +417,17 @@ check_fmin <- function(opt) {
        bty = "l",
        type = "l")
   plot(iters,
-       gval,
+       normg,
        xlab = "Iterations",
        ylab = "",
-       main = "Maximum Absolute Gradient",
+       main = "Gradient",
        bty = "l",
        type = "l")
   plot(iters,
-       relg,
+       maxg,
        xlab = "Iterations",
        ylab = "",
-       main = "Maximum Absolute Relative Gradient",
+       main = "Maximum Absolute Gradient",
        bty = "l",
        type = "l")
   invisible(opt)
